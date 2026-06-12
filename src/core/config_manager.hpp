@@ -1,6 +1,7 @@
 #pragma once
 
 #include "backends/backend.hpp"
+#include "core/pointer_config.hpp"
 #include <string>
 #include <optional>
 #include <toml.hpp>
@@ -16,6 +17,9 @@ public:
 
     std::optional<Config> get(const std::string& device_name) const;
     void set(const std::string& device_name, const Config& cfg);
+
+    std::optional<PointerConfig> get_pointer() const;
+    void set_pointer(const PointerConfig& cfg);
 
     std::string config_path() const;
 

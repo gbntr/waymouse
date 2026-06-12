@@ -95,4 +95,31 @@ void ConfigManager::set(const std::string& device_name, const Config& cfg)
     m_data["device"][device_name] = std::move(dev);
 }
 
+std::optional<PointerConfig> ConfigManager::get_pointer() const
+{
+    if (!m_data.contains("pointer"))
+        return std::nullopt;
+
+    const auto& ptr = toml::find(m_data, "pointer");
+    if (!ptr.is_table())
+        return std::nullopt;
+
+    PointerConfig cfg;
+    if (ptr.contains("theme"))
+        cfg.theme = toml::find<std::string>(ptr, "theme");
+    if (ptr.contains("size"))
+        cfg.size = toml::find<int>(ptr, "size");
+
+    return cfg;
+}
+
+void ConfigManager::set_pointer(const PointerConfig& cfg)
+{
+    toml::value ptr;
+    ptr["theme"] = cfg.theme;
+    ptr["size"] = cfg.size;
+
+    m_data["pointer"] = std::move(ptr);
+}
+
 } // namespace waymouse
