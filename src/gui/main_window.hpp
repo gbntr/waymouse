@@ -1,0 +1,38 @@
+#pragma once
+
+#include <QMainWindow>
+#include <memory>
+#include <vector>
+
+namespace waymouse {
+
+class DeviceManager;
+class ConfigManager;
+class Backend;
+struct Device;
+
+class MainWindow : public QMainWindow {
+    Q_OBJECT
+
+public:
+    explicit MainWindow(DeviceManager* dev_mgr, ConfigManager* cfg_mgr, Backend* backend, QWidget* parent = nullptr);
+    ~MainWindow() override;
+
+private slots:
+    void onDeviceSelected(int index);
+    void onApplyClicked();
+
+private:
+    void setupUi();
+    void refreshDeviceList();
+
+    DeviceManager* m_device_manager;
+    ConfigManager* m_config_manager;
+    Backend* m_backend;
+    std::vector<Device> m_devices;
+
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
+};
+
+} // namespace waymouse
