@@ -1,0 +1,26 @@
+build/
+*.user
+CMakeUserPresets.json
+
+# IDE
+.vscode/
+.idea/
+
+# specs folder (local agent workspace)
+specs/
+
+# feature briefs (internal specs, not versioned)
+docs/features/
+
+# Qt
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+*.moc
+
+# Compiled
+*.o
+*.so
+*.a
+waymouse
