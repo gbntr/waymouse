@@ -6,6 +6,11 @@ CMakeUserPresets.json
 .vscode/
 .idea/
 
+# opencode configuration (local agent commands, not versioned)
+.opencode/
+opencode.json
+opencode.jsonc
+
 # specs folder (local agent workspace)
 specs/
 
