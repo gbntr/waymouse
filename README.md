@@ -32,7 +32,9 @@ cmake --build .
 
 ## Contribuindo
 
-Veja `rules/` para guias de arquitetura e estilo de código.
+Veja [`docs/roadmap.md`](docs/roadmap.md) para a lista de features e próximos passos.  
+Veja [`CONTRIBUTING.md`](CONTRIBUTING.md) para guias de como contribuir.  
+Veja `rules/` para arquitetura e estilo de código.
 
 ## Equipe
 
