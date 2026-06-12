@@ -21,7 +21,8 @@ bool ConfigManager::load()
 {
     if (!std::filesystem::exists(m_path))
     {
-        m_data = toml::value{};
+        // Initialize as empty table so .contains() doesn't throw type_error
+        m_data = toml::value(toml::table{});
         return true;
     }
 
@@ -32,6 +33,8 @@ bool ConfigManager::load()
     catch (const std::exception& e)
     {
         std::cerr << "Failed to load config: " << e.what() << "\n";
+        // Ensure m_data is a valid table after parse failure
+        m_data = toml::value(toml::table{});
         return false;
     }
     return true;

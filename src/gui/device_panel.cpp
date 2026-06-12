@@ -17,6 +17,8 @@ public:
     QLabel* accel_label = nullptr;
 };
 
+DevicePanel::~DevicePanel() = default;
+
 DevicePanel::DevicePanel(QWidget* parent)
     : QWidget(parent)
     , m_impl(std::make_unique<Impl>())

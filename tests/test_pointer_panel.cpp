@@ -30,7 +30,7 @@ public:
 class MockThemeDetector : public ThemeDetector
 {
 public:
-    std::vector<CursorTheme> detect_themes() const
+    std::vector<CursorTheme> detect_themes() const override
     {
         CursorTheme t1{"Adwaita", "/usr/share/icons/Adwaita", false};
         CursorTheme t2{"Bibata", "/home/user/.icons/Bibata", true};
@@ -190,7 +190,8 @@ private slots:
             }
         }
         QVERIFY(badge != nullptr);
-        QVERIFY(badge->isVisible());
+        // isHidden() checks widget-level flag; isVisible() requires all ancestors visible
+        QVERIFY(!badge->isHidden());
     }
 };
 

@@ -137,11 +137,13 @@ void PointerPanel::setupUi()
     size_layout->addWidget(m_impl->size_spinbox);
     layout->addLayout(size_layout);
 
-    // Sync slider and spinbox
+    // Sync slider and spinbox via single-directional update.
+    // Both widgets connect to onSizeChanged; refresh() handles bidirectional sync
+    // with blockSignals() to prevent signal loops.
     connect(m_impl->size_slider, &QSlider::valueChanged,
-            m_impl->size_spinbox, &QSpinBox::setValue);
+            this, &PointerPanel::onSizeChanged);
     connect(m_impl->size_spinbox, QOverload<int>::of(&QSpinBox::valueChanged),
-            m_impl->size_slider, &QSlider::setValue);
+            this, &PointerPanel::onSizeChanged);
 
     // --- Preview ---
     m_impl->preview_label = new QLabel(this);

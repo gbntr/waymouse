@@ -10,6 +10,7 @@ class DevicePanel : public QWidget {
 
 public:
     explicit DevicePanel(QWidget* parent = nullptr);
+    ~DevicePanel() override;
 
     void setConfig(const Config& cfg);
     Config config() const;

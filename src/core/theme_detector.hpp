@@ -15,10 +15,11 @@ struct CursorTheme
 class ThemeDetector
 {
 public:
-    std::vector<CursorTheme> detect_themes() const;
+    virtual ~ThemeDetector() = default;
+    virtual std::vector<CursorTheme> detect_themes() const;
+    virtual std::string default_theme() const;
+    virtual int default_size() const;
     bool is_valid_theme_directory(const std::string& path) const;
-    std::string default_theme() const;
-    int default_size() const;
 
 private:
     std::vector<CursorTheme> scan_directory(const std::string& base_path,
