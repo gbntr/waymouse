@@ -43,17 +43,23 @@ set(CORE_SOURCES
     src/core/compositor_detector.cpp
     src/core/config_manager.cpp
     src/core/device_manager.cpp
+    src/core/pointer_manager.cpp
+    src/core/theme_detector.cpp
 )
 
 set(BACKEND_SOURCES
     src/backends/mango_backend.cpp
     src/backends/niri_backend.cpp
     src/backends/libinput_backend.cpp
+    src/backends/env_cursor_backend.cpp
+    src/backends/wlr_cursor_backend.cpp
+    src/backends/niri_cursor_backend.cpp
 )
 
 set(GUI_SOURCES
     src/gui/main_window.cpp
     src/gui/device_panel.cpp
+    src/gui/pointer_panel.cpp
 )
 
 set(ALL_SOURCES
