@@ -2,6 +2,9 @@
 #include "backends/mango_backend.hpp"
 #include "backends/niri_backend.hpp"
 #include "backends/libinput_backend.hpp"
+#include "backends/wlr_cursor_backend.hpp"
+#include "backends/niri_cursor_backend.hpp"
+#include "backends/env_cursor_backend.hpp"
 #include <cstdlib>
 #include <filesystem>
 
@@ -61,6 +64,19 @@ BackendPtr create_backend(BackendType type)
         return std::make_unique<LibinputBackend>();
     }
     return std::make_unique<LibinputBackend>();
+}
+
+CursorBackendPtr create_cursor_backend(BackendType type)
+{
+    switch (type)
+    {
+    case BackendType::Mango:
+        return std::make_unique<WlrCursorBackend>();
+    case BackendType::Niri:
+        return std::make_unique<NiriCursorBackend>();
+    default:
+        return std::make_unique<EnvCursorBackend>();
+    }
 }
 
 } // namespace waymouse
