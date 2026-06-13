@@ -62,3 +62,11 @@ target_link_libraries(test_config_manager PRIVATE
 target_compile_features(test_config_manager PRIVATE cxx_std_20)
 maybe_link_filesystem(test_config_manager)
 add_test(NAME ConfigManager COMMAND test_config_manager)
+
+# Test ShakeDetector (pure C++)
+add_executable(test_shake_detector
+    test_shake_detector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/shake_detector.cpp
+)
+target_compile_features(test_shake_detector PRIVATE cxx_std_20)
+add_test(NAME ShakeDetector COMMAND test_shake_detector)
