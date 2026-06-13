@@ -4,6 +4,7 @@
 #include "core/config_manager.hpp"
 #include "core/theme_detector.hpp"
 #include "core/pointer_manager.hpp"
+#include "core/shake_manager.hpp"
 #include "gui/main_window.hpp"
 #include <iostream>
 
@@ -49,14 +50,39 @@ int main(int argc, char* argv[])
         pointer_mgr.load_config(defaults);
     }
 
+    // --- Shake to Find ---
+    ShakeManager shake_mgr(&pointer_mgr);
+
+    // Load saved shake config on startup (or apply defaults)
+    auto saved_shake = cfg_mgr.get_shake();
+    if (saved_shake)
+    {
+        shake_mgr.set_config(*saved_shake);
+    }
+    else
+    {
+        // First launch: use defaults (set in ShakeConfig constructor)
+        cfg_mgr.set_shake(shake_mgr.config());
+        cfg_mgr.save();
+    }
+
+    // Start monitoring (probes overlay availability internally)
+    shake_mgr.start();
+
     // Note: auto-save of [pointer] config is handled by MainWindow
     // via PointerManager::changed signal connection.
 
     waymouse::MainWindow window(&dev_mgr,
                                 &cfg_mgr,
                                 backend.get(),
-                                &pointer_mgr);
+                                &pointer_mgr,
+                                &shake_mgr);
     window.show();
 
-    return app.exec();
+    int ret = app.exec();
+
+    // Cleanup monitoring thread before exit
+    shake_mgr.stop();
+
+    return ret;
 }
