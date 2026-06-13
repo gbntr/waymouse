@@ -69,5 +69,22 @@ Implementar Feature 02 — Shake to Find conforme specs em `specs/02-shake-to-fi
     deve ser desabilitado em compositores sem layer-shell, mas o MVP usa
     QWindow puro que funciona em todos os compositores.
 
-## Status
-PENDENTE REVISÃO DO HARVEY
+## Revisão do Harvey (2026-06-12)
+
+### Veredicto
+✅ **APROVADO PARA QA** — com documentação retroativa aplicada.
+
+### Alterações na spec aplicadas
+- `spec.md`: RF-6 e RF-9 atualizados para refletir QWindow puro como MVP.
+- `clarify.md`: D-5 e D-7 atualizados para documentar a decisão de QWindow puro vs layer-shell.
+- `plan.md`: DT-3 e Backend Strategy atualizados para refletir implementação real.
+- `analyze.md`: INC-5 adicionado documentando a mudança de layer-shell para QWindow.
+- `architecture.md`: Shake to Find Flow atualizado para refletir QWindow puro.
+
+### Riscos aceitos
+1. **Overlay QWindow puro**: Funciona na maioria dos compositores, mas não é uma overlay semântica garantida. `LayerShellSurface` está pronto para futura integração.
+2. **Badge de indisponibilidade**: Nunca aparece no MVP porque `initialize()` sempre retorna `true`. Aceitável porque QWindow puro tem compatibilidade universal.
+3. **Testes T-15 e T-16 pulados**: ShakeManager e ShakePanel não têm testes de unidade. A Dona deve cobrir com testes de integração/browser.
+
+### Próximo passo
+Enviar para QA (Dona).

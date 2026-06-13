@@ -118,6 +118,17 @@ public:
 3. `ShakeDetector` analisa sequência de deltas no algoritmo de reversão direcional.
 4. Ao detectar shake, callback `on_shake` é invocado na thread de input.
 5. `ShakeManager` encaminha o sinal para a thread principal via `QMetaObject::invokeMethod`.
+6. `ShakeOverlay::show_at()` exibe o overlay (cursor escalado + anel azul) via `QWindow` com flags `WindowStaysOnTopHint` + `WindowTransparentForInput`.
+7. `QTimer` esconde o overlay após `duration` segundos.
+8. Se o compositor não suporta janelas flutuantes transparentes (raro), o recurso pode não funcionar corretamente. Uma iteração futura pode usar `zwlr_layer_shell_v1` para semântica de overlay garantida.
+
+## Shake to Find Flow
+
+1. `RawInputMonitor` abre `/dev/input/event*` para dispositivos com `ID_INPUT_MOUSE=true`.
+2. Thread de input lê eventos `REL_X`/`REL_Y` via `epoll_wait()` e os encaminha ao `ShakeDetector`.
+3. `ShakeDetector` analisa sequência de deltas no algoritmo de reversão direcional.
+4. Ao detectar shake, callback `on_shake` é invocado na thread de input.
+5. `ShakeManager` encaminha o sinal para a thread principal via `QMetaObject::invokeMethod`.
 6. `ShakeOverlay::show_at()` exibe o overlay (cursor escalado + anel azul) via `zwlr_layer_shell_v1`.
 7. `QTimer` esconde o overlay após `duration` segundos.
 8. Se o compositor não suporta `zwlr_layer_shell_v1`, o recurso é desabilitado com badge de aviso.
