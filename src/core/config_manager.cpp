@@ -125,4 +125,37 @@ void ConfigManager::set_pointer(const PointerConfig& cfg)
     m_data["pointer"] = std::move(ptr);
 }
 
+std::optional<ShakeConfig> ConfigManager::get_shake() const
+{
+    if (!m_data.contains("shake"))
+        return std::nullopt;
+
+    const auto& shake = toml::find(m_data, "shake");
+    if (!shake.is_table())
+        return std::nullopt;
+
+    ShakeConfig cfg;
+    if (shake.contains("enabled"))
+        cfg.enabled = toml::find<bool>(shake, "enabled");
+    if (shake.contains("sensitivity"))
+        cfg.sensitivity = toml::find<std::string>(shake, "sensitivity");
+    if (shake.contains("duration"))
+        cfg.duration = toml::find<double>(shake, "duration");
+    if (shake.contains("scale"))
+        cfg.scale = toml::find<double>(shake, "scale");
+
+    return cfg;
+}
+
+void ConfigManager::set_shake(const ShakeConfig& cfg)
+{
+    toml::value shake;
+    shake["enabled"] = cfg.enabled;
+    shake["sensitivity"] = cfg.sensitivity;
+    shake["duration"] = cfg.duration;
+    shake["scale"] = cfg.scale;
+
+    m_data["shake"] = std::move(shake);
+}
+
 } // namespace waymouse
