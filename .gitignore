@@ -14,6 +14,9 @@ opencode.jsonc
 # specs folder (local agent workspace)
 specs/
 
+# qa folder (tests run locally)
+qa/
+
 # feature briefs (internal specs, not versioned)
 docs/features/
 
