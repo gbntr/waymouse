@@ -386,40 +386,6 @@ scale = 9999
     PASS();
 }
 
-static void test_get_shake_normalizes_invalid_values()
-{
-    TEST("get_shake normalizes invalid values");
-
-    std::string dir = "/tmp/waymouse_config_test_shake_invalid";
-    std::string waymouse_dir = dir + "/waymouse";
-    std::string config_path = waymouse_dir + "/config.toml";
-    std::filesystem::remove_all(dir);
-    std::filesystem::create_directories(waymouse_dir);
-
-    write_config(config_path, R"(
-[shake]
-enabled = true
-sensitivity = "turbo"
-duration = -1.0
-scale = 9999
-)");
-
-    setenv("XDG_CONFIG_HOME", dir.c_str(), 1);
-
-    ConfigManager mgr;
-    mgr.load();
-
-    auto shake = mgr.get_shake();
-    ASSERT_TRUE(shake.has_value(), "should have shake config");
-    ASSERT_TRUE(shake->enabled == true, "enabled should remain true");
-    ASSERT_TRUE(shake->sensitivity == "medium", "invalid sensitivity defaults to medium");
-    ASSERT_TRUE(shake->duration == 1.5, "invalid duration defaults to 1.5");
-    ASSERT_TRUE(shake->scale == 3.0, "invalid scale defaults to 3.0");
-
-    std::filesystem::remove_all(dir);
-    PASS();
-}
-
 int main()
 {
     std::cout << "=== ConfigManager Pointer Tests ===\n";
