@@ -9,20 +9,25 @@ as configurações via GUI Qt6.
 ## Camadas
 
 ```
-┌─────────────────────────────┐
-│           GUI (Qt6)         │
-│  main_window, device_panel  │
-├─────────────────────────────┤
-│           Core              │
-│  config_manager, device_mgr,│
-│  compositor_detector        │
-├─────────────────────────────┤
-│          Backends           │
-│  Mango │ Niri │ Libinput    │
-├─────────────────────────────┤
-│      Sistema (Linux)        │
-│  libinput / libudev / wl    │
-└─────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    GUI (Qt6)                        │
+│  main_window, device_panel, pointer_panel,           │
+│  shake_panel, shake_overlay                         │
+├─────────────────────────────────────────────────────┤
+│                     Core                            │
+│  config_manager, device_mgr, compositor_detector,   │
+│  pointer_manager, theme_detector, shake_manager,    │
+│  shake_detector, raw_input_monitor                  │
+├─────────────────────────────────────────────────────┤
+│          Backends (Device + Cursor)                  │
+│  Mango │ Niri │ Libinput │ EnvCursor │ WlrCursor    │
+├─────────────────────────────────────────────────────┤
+│              Wayland Layer                          │
+│  layer_shell_surface (wlr-layer-shell-v1)           │
+├─────────────────────────────────────────────────────┤
+│      Sistema (Linux)                                │
+│  libinput / libudev / wayland-client / /dev/input   │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Core
@@ -96,8 +101,34 @@ public:
 ## Runtime Flow
 
 1. `main` instancia `CompositorDetector`.
-2. Detector retorna `BackendType` → fábrica cria backend concreto.
+2. Detector retorna `BackendType` → fábrica cria backend concreto e cursor backend.
 3. `DeviceManager` enumera dispositivos.
 4. `ConfigManager` carrega config persistida.
-5. `MainWindow` é exibida com lista de dispositivos.
-6. Usuário altera config → `ConfigManager` salva TOML + `Backend::apply()` é chamado.
+5. `PointerManager` é instanciado com `ThemeDetector` + `CursorBackend`.
+6. `ShakeManager` é instanciado (owns `ShakeDetector` + `RawInputMonitor`).
+7. `ShakeOverlay` é instanciado e conectado ao `ShakeManager`.
+8. Configuração `[shake]` é carregada e aplicada ao `ShakeManager`.
+9. `MainWindow` é exibida com três abas: Dispositivo, Aparência, Shake.
+10. Usuário altera config → `ConfigManager` salva TOML + backend aplica.
+
+## Shake to Find Flow
+
+1. `RawInputMonitor` abre `/dev/input/event*` para dispositivos com `ID_INPUT_MOUSE=true`.
+2. Thread de input lê eventos `REL_X`/`REL_Y` via `epoll_wait()` e os encaminha ao `ShakeDetector`.
+3. `ShakeDetector` analisa sequência de deltas no algoritmo de reversão direcional.
+4. Ao detectar shake, callback `on_shake` é invocado na thread de input.
+5. `ShakeManager` encaminha o sinal para a thread principal via `QMetaObject::invokeMethod`.
+6. `ShakeOverlay::show_at()` exibe o overlay (cursor escalado + anel azul) via `QWindow` com flags `WindowStaysOnTopHint` + `WindowTransparentForInput`.
+7. `QTimer` esconde o overlay após `duration` segundos.
+8. Se o compositor não suporta janelas flutuantes transparentes (raro), o recurso pode não funcionar corretamente. Uma iteração futura pode usar `zwlr_layer_shell_v1` para semântica de overlay garantida.
+
+## Shake to Find Flow
+
+1. `RawInputMonitor` abre `/dev/input/event*` para dispositivos com `ID_INPUT_MOUSE=true`.
+2. Thread de input lê eventos `REL_X`/`REL_Y` via `epoll_wait()` e os encaminha ao `ShakeDetector`.
+3. `ShakeDetector` analisa sequência de deltas no algoritmo de reversão direcional.
+4. Ao detectar shake, callback `on_shake` é invocado na thread de input.
+5. `ShakeManager` encaminha o sinal para a thread principal via `QMetaObject::invokeMethod`.
+6. `ShakeOverlay::show_at()` exibe o overlay (cursor escalado + anel azul) via `zwlr_layer_shell_v1`.
+7. `QTimer` esconde o overlay após `duration` segundos.
+8. Se o compositor não suporta `zwlr_layer_shell_v1`, o recurso é desabilitado com badge de aviso.

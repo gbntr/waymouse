@@ -208,6 +208,184 @@ theme = "Adwaita"
     PASS();
 }
 
+static void test_get_shake_returns_nullopt_when_missing()
+{
+    TEST("get_shake returns nullopt when [shake] missing");
+
+    ScopedXdgConfig env("shake_nullopt");
+
+    write_config(env.config_path, R"(
+[device."My Mouse"]
+accel_speed = 0.5
+)");
+
+    ConfigManager mgr;
+    bool loaded = mgr.load();
+    ASSERT_TRUE(loaded, "failed to load config");
+
+    auto shake = mgr.get_shake();
+    ASSERT_FALSE(shake.has_value(), "should return nullopt");
+
+    PASS();
+}
+
+static void test_get_shake_returns_config()
+{
+    TEST("get_shake returns saved config");
+
+    ScopedXdgConfig env("shake_config");
+
+    write_config(env.config_path, R"(
+[shake]
+enabled = true
+sensitivity = "high"
+duration = 2.0
+scale = 4.0
+)");
+
+    ConfigManager mgr;
+    bool loaded = mgr.load();
+    ASSERT_TRUE(loaded, "failed to load config");
+
+    auto shake = mgr.get_shake();
+    ASSERT_TRUE(shake.has_value(), "should have shake config");
+    ASSERT_TRUE(shake->enabled == true, "enabled should be true");
+    ASSERT_TRUE(shake->sensitivity == "high", "sensitivity should be high");
+    ASSERT_TRUE(shake->duration == 2.0, "duration should be 2.0");
+    ASSERT_TRUE(shake->scale == 4.0, "scale should be 4.0");
+
+    PASS();
+}
+
+static void test_shake_saves_correctly()
+{
+    TEST("set_shake round-trip");
+
+    ScopedXdgConfig env("shake_save");
+
+    ConfigManager mgr;
+    mgr.load();
+
+    ShakeConfig cfg;
+    cfg.enabled = false;
+    cfg.sensitivity = "low";
+    cfg.duration = 3.0;
+    cfg.scale = 2.5;
+    mgr.set_shake(cfg);
+    mgr.save();
+
+    // Reload and verify
+    ConfigManager mgr2;
+    mgr2.load();
+    auto shake2 = mgr2.get_shake();
+    ASSERT_TRUE(shake2.has_value(), "should have shake config after reload");
+    ASSERT_TRUE(shake2->enabled == false, "enabled should be false");
+    ASSERT_TRUE(shake2->sensitivity == "low", "sensitivity should be low");
+    ASSERT_TRUE(shake2->duration == 3.0, "duration should be 3.0");
+    ASSERT_TRUE(shake2->scale == 2.5, "scale should be 2.5");
+
+    PASS();
+}
+
+static void test_shake_pointer_device_coexist()
+{
+    TEST("[shake], [pointer], and [device] coexist");
+
+    ScopedXdgConfig env("coexist");
+
+    ConfigManager mgr;
+    mgr.load();
+
+    // Set all three sections
+    PointerConfig ptr;
+    ptr.theme = "Adwaita";
+    ptr.size = 32;
+    mgr.set_pointer(ptr);
+
+    ShakeConfig shake;
+    shake.enabled = true;
+    shake.sensitivity = "medium";
+    shake.duration = 1.5;
+    shake.scale = 3.0;
+    mgr.set_shake(shake);
+
+    Config dev_cfg;
+    dev_cfg.accel_speed = 0.8;
+    mgr.set("Mouse X", dev_cfg);
+
+    mgr.save();
+
+    // Reload and verify all
+    ConfigManager mgr2;
+    mgr2.load();
+
+    auto ptr2 = mgr2.get_pointer();
+    ASSERT_TRUE(ptr2.has_value(), "pointer config should exist");
+    ASSERT_TRUE(ptr2->theme == "Adwaita", "pointer theme should be Adwaita");
+
+    auto shake2 = mgr2.get_shake();
+    ASSERT_TRUE(shake2.has_value(), "shake config should exist");
+    ASSERT_TRUE(shake2->enabled == true, "shake should be enabled");
+
+    auto dev2 = mgr2.get("Mouse X");
+    ASSERT_TRUE(dev2.has_value(), "device config should exist");
+    ASSERT_TRUE(dev2->accel_speed == 0.8, "accel_speed should be 0.8");
+
+    PASS();
+}
+
+static void test_get_shake_returns_defaults_for_missing_fields()
+{
+    TEST("get_shake returns defaults for missing fields");
+
+    ScopedXdgConfig env("shake_defaults");
+
+    write_config(env.config_path, R"(
+[shake]
+enabled = false
+)");
+
+    ConfigManager mgr;
+    mgr.load();
+
+    auto shake = mgr.get_shake();
+    ASSERT_TRUE(shake.has_value(), "should have shake config");
+    ASSERT_TRUE(shake->enabled == false, "enabled should be false");
+    // Defaults for missing fields
+    ASSERT_TRUE(shake->sensitivity == "medium", "default sensitivity should be medium");
+    ASSERT_TRUE(shake->duration == 1.5, "default duration should be 1.5");
+    ASSERT_TRUE(shake->scale == 3.0, "default scale should be 3.0");
+
+    PASS();
+}
+
+static void test_get_shake_normalizes_invalid_values()
+{
+    TEST("get_shake normalizes invalid values");
+
+    ScopedXdgConfig env("shake_invalid");
+
+    write_config(env.config_path, R"(
+[shake]
+enabled = true
+sensitivity = "turbo"
+duration = -1.0
+scale = 9999
+)");
+
+    ConfigManager mgr;
+    mgr.load();
+
+    auto shake = mgr.get_shake();
+    ASSERT_TRUE(shake.has_value(), "should have shake config");
+    ASSERT_TRUE(shake->enabled == true, "enabled should remain true");
+    ASSERT_TRUE(shake->sensitivity == "medium", "invalid sensitivity defaults to medium");
+    ASSERT_TRUE(shake->duration == 1.5, "invalid duration defaults to 1.5");
+    ASSERT_TRUE(shake->scale == 3.0, "invalid scale defaults to 3.0");
+
+    PASS();
+}
+
 int main()
 {
     std::cout << "=== ConfigManager Pointer Tests ===\n";
@@ -217,6 +395,14 @@ int main()
     test_set_pointer_saves_correctly();
     test_set_pointer_preserves_device_config();
     test_get_pointer_returns_defaults_for_missing_fields();
+
+    std::cout << "\n=== ConfigManager Shake Tests ===\n";
+    test_get_shake_returns_nullopt_when_missing();
+    test_get_shake_returns_config();
+    test_shake_saves_correctly();
+    test_shake_pointer_device_coexist();
+    test_get_shake_returns_defaults_for_missing_fields();
+    test_get_shake_normalizes_invalid_values();
 
     std::cout << "\nResults: " << tests_passed << "/" << tests_run << " passed\n";
     return (tests_passed == tests_run) ? 0 : 1;

@@ -7,7 +7,7 @@ Public feature roadmap for `waymouse`. Want to contribute? Pick a task below, re
 | Phase | Feature | Priority | Status | Good First Issue |
 |-------|---------|----------|--------|------------------|
 | **1 — UX & Polish** | Pointer Manager (theme & size) | **High** | `done` | ✅ |
-| | Shake to Find | **High** | `not started` | ❌ |
+| | Shake to Find | **High** | `qa` | ❌ |
 | **2 — Core Functionality** | Basic Mouse Config (speed, accel, profiles) | **High** | `not started` | ✅ |
 | | Device Separation (mouse vs touchpad) | **Medium** | `not started` | ✅ |
 

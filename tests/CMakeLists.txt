@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Test)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Test)
 
 enable_testing()
 
@@ -62,3 +62,36 @@ target_link_libraries(test_config_manager PRIVATE
 target_compile_features(test_config_manager PRIVATE cxx_std_20)
 maybe_link_filesystem(test_config_manager)
 add_test(NAME ConfigManager COMMAND test_config_manager)
+
+# Test ShakeDetector (pure C++)
+add_executable(test_shake_detector
+    test_shake_detector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/shake_detector.cpp
+)
+target_compile_features(test_shake_detector PRIVATE cxx_std_20)
+add_test(NAME ShakeDetector COMMAND test_shake_detector)
+
+# Test ShakePanel (QTest)
+add_executable(test_shake_panel
+    test_shake_panel.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/shake_panel.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/shake_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/shake_detector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/raw_input_monitor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/config_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pointer_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/theme_detector.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/shake_overlay.cpp
+)
+target_link_libraries(test_shake_panel PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Test
+    toml11::toml11
+    ${WAYLAND_LIBRARIES}
+    ${UDEV_LIBRARIES}
+    ${LIBINPUT_LIBRARIES}
+    Threads::Threads
+)
+target_compile_features(test_shake_panel PRIVATE cxx_std_20)
+add_test(NAME ShakePanel COMMAND test_shake_panel)

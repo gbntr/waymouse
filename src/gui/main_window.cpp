@@ -2,9 +2,11 @@
 #include "core/device_manager.hpp"
 #include "core/config_manager.hpp"
 #include "core/pointer_manager.hpp"
+#include "core/shake_manager.hpp"
 #include "backends/backend.hpp"
 #include "gui/device_panel.hpp"
 #include "gui/pointer_panel.hpp"
+#include "gui/shake_panel.hpp"
 
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -23,18 +25,21 @@ public:
     QPushButton* apply_btn = nullptr;
     QLabel* status = nullptr;
     PointerPanel* pointer_panel = nullptr;
+    ShakePanel* shake_panel = nullptr;
 };
 
 MainWindow::MainWindow(DeviceManager* dev_mgr,
                        ConfigManager* cfg_mgr,
                        Backend* backend,
                        PointerManager* pointer_mgr,
+                       ShakeManager* shake_mgr,
                        QWidget* parent)
     : QMainWindow(parent)
     , m_device_manager(dev_mgr)
     , m_config_manager(cfg_mgr)
     , m_backend(backend)
     , m_pointer_manager(pointer_mgr)
+    , m_shake_manager(shake_mgr)
     , m_impl(std::make_unique<Impl>())
 {
     setupUi();
@@ -80,6 +85,14 @@ void MainWindow::setupUi()
     // --- Appearance tab ---
     m_impl->pointer_panel = new PointerPanel(m_pointer_manager, this);
     m_impl->tab_widget->addTab(m_impl->pointer_panel, "Apar\u00eancia");
+
+    // --- Shake tab ---
+    if (m_shake_manager)
+    {
+        m_impl->shake_panel = new ShakePanel(m_shake_manager,
+                                             m_config_manager, this);
+        m_impl->tab_widget->addTab(m_impl->shake_panel, "Shake");
+    }
 
     top_layout->addWidget(m_impl->tab_widget);
 
