@@ -87,17 +87,20 @@ void ShakeOverlay::show_at(int x, int y, double scale, double duration_sec)
     position_on_screen(x, y, overlay_size);
     resize(overlay_size, overlay_size);
 
-    // Create backing store
-    if (!m_backing_store || m_backing_store->size() != size())
-    {
-        m_backing_store = std::make_unique<QBackingStore>(this);
-        m_backing_store->resize(size());
-    }
-
-    // Render content
-    render();
+    // Ensure window is visible before creating backing store.
+    // On Wayland, the native wl_surface is created lazily on show(),
+    // and beginPaint() will crash if the surface doesn't exist yet.
     m_visible = true;
     show();
+
+    // Recreate backing store every time (window may have been hidden,
+    // which destroys the native SHM buffers on Wayland).
+    // We must resize() AFTER show() so the native surface dimensions match.
+    m_backing_store = std::make_unique<QBackingStore>(this);
+    m_backing_store->resize(size());
+
+    // Render content — safe now because the native surface exists
+    render();
 
     // Start auto-hide timer
     m_hide_timer->start(static_cast<int>(duration_sec * 1000));

@@ -2,10 +2,10 @@
 #include "gui/shake_overlay.hpp"
 #include "core/pointer_manager.hpp"
 
+#include <algorithm>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QMetaObject>
-#include <QThread>
 #include <iostream>
 
 namespace waymouse {
@@ -55,19 +55,19 @@ ShakeManager::~ShakeManager()
 void ShakeManager::set_config(const ShakeConfig& cfg)
 {
     bool old_enabled = m_config.enabled;
-    m_config = cfg;
+    m_config = normalize_shake_config(cfg);
 
     // Map sensitivity string to enum
     ShakeSensitivity sens = ShakeSensitivity::Medium;
-    if (cfg.sensitivity == "low")
+    if (m_config.sensitivity == "low")
         sens = ShakeSensitivity::Low;
-    else if (cfg.sensitivity == "high")
+    else if (m_config.sensitivity == "high")
         sens = ShakeSensitivity::High;
 
     m_detector->set_sensitivity(sens);
 
     // Restart monitoring if enabled state changed
-    if (cfg.enabled != old_enabled)
+    if (m_config.enabled != old_enabled)
         update_state();
 
     emit config_changed();

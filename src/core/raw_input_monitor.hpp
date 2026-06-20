@@ -41,7 +41,6 @@ public:
 private:
     void scan_and_open();
     void run();
-    bool is_mouse_device(const std::string& syspath) const;
 
     std::vector<int> m_fds;     // open /dev/input/event* file descriptors
     std::thread m_thread;

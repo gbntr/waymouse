@@ -8,10 +8,38 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
+#include <QHBoxLayout>
+#include <QFont>
 #include <QSlider>
 #include <QVBoxLayout>
 
+#include <cmath>
+
 namespace waymouse {
+
+namespace {
+
+int duration_to_slider(double value)
+{
+    return static_cast<int>(std::lround(value * 2.0));
+}
+
+double slider_to_duration(int value)
+{
+    return static_cast<double>(value) * 0.5;
+}
+
+int scale_to_slider(double value)
+{
+    return static_cast<int>(std::lround(value * 2.0));
+}
+
+double slider_to_scale(int value)
+{
+    return static_cast<double>(value) * 0.5;
+}
+
+} // namespace
 
 class ShakePanel::Impl
 {
@@ -69,6 +97,8 @@ void ShakePanel::refresh()
     m_impl->sensitivity_combo->blockSignals(true);
     m_impl->duration_spin->blockSignals(true);
     m_impl->scale_spin->blockSignals(true);
+    m_impl->duration_slider->blockSignals(true);
+    m_impl->scale_slider->blockSignals(true);
 
     auto cfg = m_manager->config();
 
@@ -84,11 +114,15 @@ void ShakePanel::refresh()
 
     m_impl->duration_spin->setValue(cfg.duration);
     m_impl->scale_spin->setValue(cfg.scale);
+    m_impl->duration_slider->setValue(duration_to_slider(cfg.duration));
+    m_impl->scale_slider->setValue(scale_to_slider(cfg.scale));
 
     m_impl->enabled_check->blockSignals(false);
     m_impl->sensitivity_combo->blockSignals(false);
     m_impl->duration_spin->blockSignals(false);
     m_impl->scale_spin->blockSignals(false);
+    m_impl->duration_slider->blockSignals(false);
+    m_impl->scale_slider->blockSignals(false);
 
     updateBadge();
 }
@@ -99,6 +133,7 @@ void ShakePanel::setupUi()
 
     // --- Enable toggle ---
     m_impl->enabled_check = new QCheckBox("Enable Shake to Find", this);
+    m_impl->enabled_check->setObjectName("shake_enabled_check");
     QFont font = m_impl->enabled_check->font();
     font.setBold(true);
     m_impl->enabled_check->setFont(font);
@@ -107,6 +142,7 @@ void ShakePanel::setupUi()
     // --- Sensitivity ---
     auto* form = new QFormLayout();
     m_impl->sensitivity_combo = new QComboBox(this);
+    m_impl->sensitivity_combo->setObjectName("shake_sensitivity_combo");
     m_impl->sensitivity_combo->addItem("Low (requires stronger shake)");
     m_impl->sensitivity_combo->addItem("Medium (default)");
     m_impl->sensitivity_combo->addItem("High (triggers easily)");
@@ -119,6 +155,7 @@ void ShakePanel::setupUi()
 
     auto* dur_layout = new QHBoxLayout();
     m_impl->duration_slider = new QSlider(Qt::Horizontal, this);
+    m_impl->duration_slider->setObjectName("shake_duration_slider");
     // Map 0.5..5.0 with step 0.5 to int 1..10
     m_impl->duration_slider->setRange(1, 10);
     m_impl->duration_slider->setSingleStep(1);
@@ -127,6 +164,7 @@ void ShakePanel::setupUi()
     dur_layout->addWidget(m_impl->duration_slider);
 
     m_impl->duration_spin = new QDoubleSpinBox(this);
+    m_impl->duration_spin->setObjectName("shake_duration_spin");
     m_impl->duration_spin->setRange(0.5, 5.0);
     m_impl->duration_spin->setSingleStep(0.5);
     m_impl->duration_spin->setDecimals(1);
@@ -138,8 +176,10 @@ void ShakePanel::setupUi()
     connect(m_impl->duration_slider, &QSlider::valueChanged, this,
             [this](int val) {
                 m_impl->duration_spin->blockSignals(true);
-                m_impl->duration_spin->setValue(val * 0.5);
+                double duration = slider_to_duration(val);
+                m_impl->duration_spin->setValue(duration);
                 m_impl->duration_spin->blockSignals(false);
+                onDurationChanged(duration);
             });
     connect(m_impl->duration_spin,
             QOverload<double>::of(&QDoubleSpinBox::valueChanged),
@@ -156,6 +196,7 @@ void ShakePanel::setupUi()
 
     auto* scale_layout = new QHBoxLayout();
     m_impl->scale_slider = new QSlider(Qt::Horizontal, this);
+    m_impl->scale_slider->setObjectName("shake_scale_slider");
     // Map 2.0..5.0 with step 0.5 to int 4..10
     m_impl->scale_slider->setRange(4, 10);
     m_impl->scale_slider->setSingleStep(1);
@@ -164,6 +205,7 @@ void ShakePanel::setupUi()
     scale_layout->addWidget(m_impl->scale_slider);
 
     m_impl->scale_spin = new QDoubleSpinBox(this);
+    m_impl->scale_spin->setObjectName("shake_scale_spin");
     m_impl->scale_spin->setRange(2.0, 5.0);
     m_impl->scale_spin->setSingleStep(0.5);
     m_impl->scale_spin->setDecimals(1);
@@ -175,8 +217,10 @@ void ShakePanel::setupUi()
     connect(m_impl->scale_slider, &QSlider::valueChanged, this,
             [this](int val) {
                 m_impl->scale_spin->blockSignals(true);
-                m_impl->scale_spin->setValue(val * 0.5);
+                double scale = slider_to_scale(val);
+                m_impl->scale_spin->setValue(scale);
                 m_impl->scale_spin->blockSignals(false);
+                onScaleChanged(scale);
             });
     connect(m_impl->scale_spin,
             QOverload<double>::of(&QDoubleSpinBox::valueChanged),
@@ -189,6 +233,7 @@ void ShakePanel::setupUi()
 
     // --- Badge ---
     m_impl->badge_label = new QLabel(this);
+    m_impl->badge_label->setObjectName("shake_badge_label");
     m_impl->badge_label->setAlignment(Qt::AlignCenter);
     m_impl->badge_label->setWordWrap(true);
     m_impl->badge_label->setStyleSheet(
@@ -263,8 +308,7 @@ void ShakePanel::updateBadge()
     else
     {
         m_impl->badge_label->setText(
-            "Shake to Find requires a compositor with "
-            "layer-shell support (e.g., wlroots-based).");
+            "Shake to Find is temporarily unavailable in this session.");
         m_impl->badge_label->show();
     }
 }

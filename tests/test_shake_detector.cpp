@@ -16,39 +16,6 @@ static int tests_passed = 0;
 #define ASSERT_TRUE(cond, msg) do { if (!(cond)) { FAIL(msg); return; } } while(0)
 #define ASSERT_FALSE(cond, msg) do { if (cond) { FAIL(msg); return; } } while(0)
 
-// Helper: create a sequence of shake events that simulate back-and-forth motion
-static uint64_t base_time = 1000000; // 1 second base
-
-// Helper: push N events simulating left-right shaking
-static void feed_left_right_shake(ShakeDetector& det, int count, int px_per_move,
-                                   uint64_t interval_us)
-{
-    for (int i = 0; i < count; ++i)
-    {
-        ShakeEvent ev;
-        ev.rel_x = (i % 2 == 0) ? px_per_move : -px_per_move;
-        ev.rel_y = 0;
-        ev.timestamp_us = base_time + i * interval_us;
-        det.push_event(ev);
-    }
-    base_time += count * interval_us + 1000000; // 1s gap between sequences
-}
-
-// Helper: continuous unidirectional motion
-static void feed_continuous_motion(ShakeDetector& det, int count, int px_per_move,
-                                    uint64_t interval_us)
-{
-    for (int i = 0; i < count; ++i)
-    {
-        ShakeEvent ev;
-        ev.rel_x = px_per_move;
-        ev.rel_y = 0;
-        ev.timestamp_us = base_time + i * interval_us;
-        det.push_event(ev);
-    }
-    base_time += count * interval_us + 1000000;
-}
-
 static void test_medium_3_reversals_triggers()
 {
     TEST("Medium: 3 reversals in 400ms + 150px triggers");

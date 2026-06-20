@@ -24,9 +24,16 @@ Implementar Feature 02 — Shake to Find conforme specs em `specs/02-shake-to-fi
 - T-13: Update CMakeLists.txt
 - T-14: Write unit tests for ShakeDetector (8 cases, all pass)
 - T-15: ShakeManager tests — SKIPPED (complex Qt/QWindow mocking)
-- T-16: ShakePanel tests — SKIPPED (complex Qt dependency chain)
+- T-16: ShakePanel tests — ADICIONADO POSTERIOR À QA (sync + persistence)
 - T-17: Write ConfigManager shake round-trip tests (5 cases, all pass)
 - T-18: Regression test + fix existing ConfigManager test
+
+### Ajustes pós-QA
+- Corrigido F-00: overlay agora cria o backing store somente após `show()`.
+- Corrigido F-04/F-05: sliders de duração/escala persistem e sincronizam no startup.
+- Corrigido F-02: valores inválidos do TOML são normalizados ao carregar/salvar.
+- Corrigido F-03: método morto `is_mouse_device()` removido do header.
+- Adicionado `tests/test_shake_panel.cpp` cobrindo sincronização e persistência.
 
 ### Arquivos novos (16)
 - `src/core/shake_config.hpp` — ShakeConfig struct
@@ -49,7 +56,7 @@ Implementar Feature 02 — Shake to Find conforme specs em `specs/02-shake-to-fi
 
 ### Build & Test
 - `cmake .. && cmake --build .` compila sem erros e sem warnings
-- `ctest`: 5/5 suites passam, 23/23 tests passam (100%)
+- `ctest`: 6/6 suites passam, 27/27 tests passam (100%)
 
 ## Impacto na spec
 
@@ -68,6 +75,7 @@ Implementar Feature 02 — Shake to Find conforme specs em `specs/02-shake-to-fi
     QWindow sempre funciona (is_available() = true). A spec diz que o recurso
     deve ser desabilitado em compositores sem layer-shell, mas o MVP usa
     QWindow puro que funciona em todos os compositores.
+  - O texto do badge foi tornado genérico para não mencionar layer-shell.
 
 ## Revisão do Harvey (2026-06-12)
 

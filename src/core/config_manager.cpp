@@ -1,9 +1,32 @@
 #include "core/config_manager.hpp"
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 
 namespace waymouse {
+
+namespace {
+
+double to_double(const toml::value& v, double fallback)
+{
+    if (v.is_floating())
+        return v.as_floating();
+    if (v.is_integer())
+        return static_cast<double>(v.as_integer());
+    return fallback;
+}
+
+int to_int(const toml::value& v, int fallback)
+{
+    if (v.is_integer())
+        return static_cast<int>(v.as_integer());
+    if (v.is_floating())
+        return static_cast<int>(std::lround(v.as_floating()));
+    return fallback;
+}
+
+} // namespace
 
 ConfigManager::ConfigManager()
 {
@@ -61,7 +84,7 @@ std::optional<Config> ConfigManager::get(const std::string& device_name) const
     if (!m_data.contains("device"))
         return std::nullopt;
 
-    const auto& devices = toml::find(m_data, "device");
+    auto devices = toml::find(m_data, "device");
     if (!devices.is_table())
         return std::nullopt;
 
@@ -73,7 +96,10 @@ std::optional<Config> ConfigManager::get(const std::string& device_name) const
     const auto& v = it->second;
     Config cfg;
     if (v.contains("accel_speed"))
-        cfg.accel_speed = toml::find<double>(v, "accel_speed");
+    {
+        auto accel_speed = toml::find(v, "accel_speed");
+        cfg.accel_speed = to_double(accel_speed, cfg.accel_speed);
+    }
     if (v.contains("accel_profile"))
         cfg.accel_profile = toml::find<std::string>(v, "accel_profile");
     if (v.contains("natural_scroll"))
@@ -103,7 +129,7 @@ std::optional<PointerConfig> ConfigManager::get_pointer() const
     if (!m_data.contains("pointer"))
         return std::nullopt;
 
-    const auto& ptr = toml::find(m_data, "pointer");
+    auto ptr = toml::find(m_data, "pointer");
     if (!ptr.is_table())
         return std::nullopt;
 
@@ -111,7 +137,10 @@ std::optional<PointerConfig> ConfigManager::get_pointer() const
     if (ptr.contains("theme"))
         cfg.theme = toml::find<std::string>(ptr, "theme");
     if (ptr.contains("size"))
-        cfg.size = toml::find<int>(ptr, "size");
+    {
+        auto size = toml::find(ptr, "size");
+        cfg.size = to_int(size, cfg.size);
+    }
 
     return cfg;
 }
@@ -130,7 +159,7 @@ std::optional<ShakeConfig> ConfigManager::get_shake() const
     if (!m_data.contains("shake"))
         return std::nullopt;
 
-    const auto& shake = toml::find(m_data, "shake");
+    auto shake = toml::find(m_data, "shake");
     if (!shake.is_table())
         return std::nullopt;
 
@@ -140,20 +169,28 @@ std::optional<ShakeConfig> ConfigManager::get_shake() const
     if (shake.contains("sensitivity"))
         cfg.sensitivity = toml::find<std::string>(shake, "sensitivity");
     if (shake.contains("duration"))
-        cfg.duration = toml::find<double>(shake, "duration");
+    {
+        auto duration = toml::find(shake, "duration");
+        cfg.duration = to_double(duration, cfg.duration);
+    }
     if (shake.contains("scale"))
-        cfg.scale = toml::find<double>(shake, "scale");
+    {
+        auto scale = toml::find(shake, "scale");
+        cfg.scale = to_double(scale, cfg.scale);
+    }
 
-    return cfg;
+    return normalize_shake_config(std::move(cfg));
 }
 
 void ConfigManager::set_shake(const ShakeConfig& cfg)
 {
+    ShakeConfig normalized = normalize_shake_config(cfg);
+
     toml::value shake;
-    shake["enabled"] = cfg.enabled;
-    shake["sensitivity"] = cfg.sensitivity;
-    shake["duration"] = cfg.duration;
-    shake["scale"] = cfg.scale;
+    shake["enabled"] = normalized.enabled;
+    shake["sensitivity"] = normalized.sensitivity;
+    shake["duration"] = normalized.duration;
+    shake["scale"] = normalized.scale;
 
     m_data["shake"] = std::move(shake);
 }

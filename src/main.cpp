@@ -61,10 +61,12 @@ int main(int argc, char* argv[])
     }
     else
     {
-        // First launch: use defaults (set in ShakeConfig constructor)
-        cfg_mgr.set_shake(shake_mgr.config());
-        cfg_mgr.save();
+        shake_mgr.set_config(ShakeConfig{});
     }
+
+    // Persist normalized shake config on startup (covers invalid TOML values too)
+    cfg_mgr.set_shake(shake_mgr.config());
+    cfg_mgr.save();
 
     // Start monitoring (probes overlay availability internally)
     shake_mgr.start();
