@@ -47,18 +47,35 @@ static void write_config(const std::string& path, const std::string& content)
     ofs.close();
 }
 
+// Helper: set up an isolated XDG_CONFIG_HOME dir for the test and expose
+// the path the ConfigManager will actually use. ConfigManager always
+// reads/writes $XDG_CONFIG_HOME/waymouse/config.toml, so callers must
+// write to the same path (or rely on save() to create it).
+struct ScopedXdgConfig {
+    std::string dir;
+    std::string config_path;
+    ScopedXdgConfig(const std::string& sub)
+    {
+        dir = "/tmp/waymouse_test_" + sub;
+        std::filesystem::remove_all(dir);
+        std::filesystem::create_directories(dir);
+        setenv("XDG_CONFIG_HOME", dir.c_str(), 1);
+        config_path = dir + "/waymouse/config.toml";
+        std::filesystem::create_directories(dir + "/waymouse");
+    }
+    ~ScopedXdgConfig() { std::filesystem::remove_all(dir); }
+};
+
 static void test_get_pointer_returns_nullopt_when_missing()
 {
     TEST("get_pointer returns nullopt when [pointer] missing");
 
-    std::string tmp_path = "/tmp/waymouse_test_config1.toml";
-    write_config(tmp_path, R"(
+    ScopedXdgConfig env("1");
+
+    write_config(env.config_path, R"(
 [device."My Mouse"]
 accel_speed = 0.5
 )");
-
-    // Override config path
-    setenv("XDG_CONFIG_HOME", "/tmp", 1);
 
     ConfigManager mgr;
     bool loaded = mgr.load();
@@ -67,7 +84,6 @@ accel_speed = 0.5
     auto ptr = mgr.get_pointer();
     ASSERT_FALSE(ptr.has_value(), "should return nullopt");
 
-    std::filesystem::remove(tmp_path);
     PASS();
 }
 
@@ -75,8 +91,9 @@ static void test_get_pointer_returns_config()
 {
     TEST("get_pointer returns saved config");
 
-    std::string tmp_path = "/tmp/waymouse_test_config2.toml";
-    write_config(tmp_path, R"(
+    ScopedXdgConfig env("2");
+
+    write_config(env.config_path, R"(
 [pointer]
 theme = "Bibata"
 size = 32
@@ -84,8 +101,6 @@ size = 32
 [device."My Mouse"]
 accel_speed = 0.5
 )");
-
-    setenv("XDG_CONFIG_HOME", "/tmp", 1);
 
     ConfigManager mgr;
     bool loaded = mgr.load();
@@ -96,7 +111,6 @@ accel_speed = 0.5
     ASSERT_TRUE(ptr->theme == "Bibata", "theme should be Bibata");
     ASSERT_TRUE(ptr->size == 32, "size should be 32");
 
-    std::filesystem::remove(tmp_path);
     PASS();
 }
 
@@ -104,12 +118,7 @@ static void test_set_pointer_saves_correctly()
 {
     TEST("set_pointer saves correctly");
 
-    // Use a unique config path
-    setenv("XDG_CONFIG_HOME", "/tmp", 1);
-    std::string tmp_path = "/tmp/waymouse_test_config3.toml";
-
-    // Clean up any existing file
-    std::filesystem::remove(tmp_path);
+    ScopedXdgConfig env("3");
 
     ConfigManager mgr;
     mgr.load();
@@ -128,7 +137,6 @@ static void test_set_pointer_saves_correctly()
     ASSERT_TRUE(ptr2->theme == "DMZ-White", "theme should be DMZ-White");
     ASSERT_TRUE(ptr2->size == 48, "size should be 48");
 
-    std::filesystem::remove(tmp_path);
     PASS();
 }
 
@@ -136,9 +144,7 @@ static void test_set_pointer_preserves_device_config()
 {
     TEST("set_pointer does not overwrite device config");
 
-    setenv("XDG_CONFIG_HOME", "/tmp", 1);
-    std::string tmp_path = "/tmp/waymouse_test_config4.toml";
-    std::filesystem::remove(tmp_path);
+    ScopedXdgConfig env("4");
 
     // Set device config first
     ConfigManager mgr;
@@ -174,7 +180,6 @@ static void test_set_pointer_preserves_device_config()
     ASSERT_TRUE(ptr->theme == "Bibata", "theme should be Bibata");
     ASSERT_TRUE(ptr->size == 32, "size should be 32");
 
-    std::filesystem::remove(tmp_path);
     PASS();
 }
 
@@ -182,11 +187,9 @@ static void test_get_pointer_returns_defaults_for_missing_fields()
 {
     TEST("get_pointer returns defaults for missing fields");
 
-    setenv("XDG_CONFIG_HOME", "/tmp", 1);
-    std::string tmp_path = "/tmp/waymouse_test_config5.toml";
-    std::filesystem::remove(tmp_path);
+    ScopedXdgConfig env("5");
 
-    write_config(tmp_path, R"(
+    write_config(env.config_path, R"(
 [pointer]
 theme = "Adwaita"
 )");
@@ -202,7 +205,6 @@ theme = "Adwaita"
     // it won't be found and will remain 24 from PointerConfig default
     ASSERT_TRUE(ptr->size == 24, "default size should be 24");
 
-    std::filesystem::remove(tmp_path);
     PASS();
 }
 
