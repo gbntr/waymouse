@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <iostream>
 #include <chrono>
+#include <thread>
 
 namespace waymouse {
 
@@ -23,6 +24,10 @@ static constexpr int EPOLL_TIMEOUT_MS = 100;
 
 RawInputMonitor::RawInputMonitor()
     : m_running(false)
+    , m_functional(false)
+    , m_permission_denied(false)
+    , m_needs_rescan(true)
+    , m_last_error()
 {
 }
 
@@ -37,6 +42,11 @@ void RawInputMonitor::start()
         return;
 
     m_running.store(true);
+    m_needs_rescan.store(true);
+    m_permission_denied.store(false);
+    m_functional.store(false);
+    m_last_error.clear();
+    publish_state();
     m_thread = std::thread(&RawInputMonitor::run, this);
 }
 
@@ -57,11 +67,45 @@ void RawInputMonitor::stop()
             close(fd);
     }
     m_fds.clear();
+    m_functional.store(false);
+    publish_state();
 }
 
 bool RawInputMonitor::is_running() const
 {
     return m_running.load();
+}
+
+bool RawInputMonitor::has_functional_input() const
+{
+    return m_functional.load();
+}
+
+bool RawInputMonitor::permission_denied() const
+{
+    return m_permission_denied.load();
+}
+
+std::string RawInputMonitor::last_error() const
+{
+    return m_last_error;
+}
+
+RawInputMonitor::State RawInputMonitor::state() const
+{
+    State s;
+    s.running = m_running.load();
+    s.functional = m_functional.load();
+    s.permission_denied = m_permission_denied.load();
+    s.needs_rescan = m_needs_rescan.load();
+    s.last_error = m_last_error;
+    return s;
+}
+
+void RawInputMonitor::publish_state()
+{
+    if (on_state_change)
+        on_state_change(state());
 }
 
 void RawInputMonitor::scan_and_open()
@@ -73,11 +117,15 @@ void RawInputMonitor::scan_and_open()
             close(fd);
     }
     m_fds.clear();
+    m_functional.store(false);
+    m_permission_denied.store(false);
+    m_last_error.clear();
 
     auto* udev = udev_new();
     if (!udev)
     {
         std::cerr << "RawInputMonitor: failed to create udev context\n";
+        m_last_error = "failed to create udev context";
         return;
     }
 
@@ -122,6 +170,8 @@ void RawInputMonitor::scan_and_open()
             {
                 std::cerr << "RawInputMonitor: permission denied on "
                           << devnode << " (user not in 'input' group?)\n";
+                m_permission_denied.store(true);
+                m_last_error = "permission denied opening " + devnode;
             }
             continue;
         }
@@ -152,6 +202,7 @@ void RawInputMonitor::scan_and_open()
         }
 
         m_fds.push_back(fd);
+        m_functional.store(true);
         std::cout << "RawInputMonitor: opened " << devnode << "\n";
     }
 
@@ -161,50 +212,66 @@ void RawInputMonitor::scan_and_open()
     if (m_fds.empty())
     {
         std::cerr << "RawInputMonitor: no mouse devices found\n";
+        if (m_last_error.empty())
+            m_last_error = m_permission_denied.load() ? "permission denied opening input devices"
+                                                      : "no mouse devices found";
     }
+
+    publish_state();
 }
 
 void RawInputMonitor::run()
 {
-    scan_and_open();
-
-    if (m_fds.empty())
-    {
-        m_running.store(false);
-        return;
-    }
-
-    // Create epoll instance
-    int epfd = epoll_create1(0);
-    if (epfd < 0)
-    {
-        std::cerr << "RawInputMonitor: epoll_create1 failed: " << strerror(errno) << "\n";
-        m_running.store(false);
-        return;
-    }
-
-    // Add all device fds to epoll
-    for (int fd : m_fds)
-    {
-        epoll_event ev{};
-        ev.events = EPOLLIN;
-        ev.data.fd = fd;
-        if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev) < 0)
-        {
-            std::cerr << "RawInputMonitor: epoll_ctl ADD failed: " << strerror(errno) << "\n";
-        }
-    }
-
-    epoll_event events[MAX_DEVICES];
-
     while (m_running.load())
     {
+        if (m_needs_rescan.load() || m_fds.empty())
+        {
+            scan_and_open();
+            m_needs_rescan.store(false);
+            if (m_fds.empty())
+            {
+                publish_state();
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                continue;
+            }
+        }
+
+        // Create epoll instance
+        int epfd = epoll_create1(0);
+        if (epfd < 0)
+        {
+            std::cerr << "RawInputMonitor: epoll_create1 failed: " << strerror(errno) << "\n";
+            m_last_error = "epoll_create1 failed";
+            publish_state();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            continue;
+        }
+
+        // Add all device fds to epoll
+        for (int fd : m_fds)
+        {
+            epoll_event ev{};
+            ev.events = EPOLLIN;
+            ev.data.fd = fd;
+            if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev) < 0)
+            {
+                std::cerr << "RawInputMonitor: epoll_ctl ADD failed: " << strerror(errno) << "\n";
+            }
+        }
+
+        epoll_event events[MAX_DEVICES];
+
         int nfds = epoll_wait(epfd, events, MAX_DEVICES, EPOLL_TIMEOUT_MS);
         if (nfds < 0)
         {
             if (errno == EINTR)
+            {
+                close(epfd);
                 continue;
+            }
             std::cerr << "RawInputMonitor: epoll_wait error: " << strerror(errno) << "\n";
+            m_last_error = "epoll_wait error";
+            publish_state();
             break;
         }
 
@@ -225,6 +292,9 @@ void RawInputMonitor::run()
                         std::cerr << "RawInputMonitor: device removed, fd=" << fd << "\n";
                         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr);
                         close(fd);
+                        m_needs_rescan.store(true);
+                        m_functional.store(false);
+                        publish_state();
                         break;
                     }
                     break;
@@ -255,9 +325,12 @@ void RawInputMonitor::run()
                     on_event(ev);
             }
         }
+
+        close(epfd);
     }
 
-    close(epfd);
+    m_running.store(false);
+    publish_state();
 }
 
 } // namespace waymouse

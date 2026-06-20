@@ -5,8 +5,11 @@
 #include "core/theme_detector.hpp"
 #include "core/pointer_manager.hpp"
 #include "core/shake_manager.hpp"
+#include "core/shake_session_runtime.hpp"
 #include "gui/main_window.hpp"
 #include <iostream>
+#include <algorithm>
+#include <string>
 
 int main(int argc, char* argv[])
 {
@@ -35,6 +38,20 @@ int main(int argc, char* argv[])
     ThemeDetector theme_detector;
     PointerManager pointer_mgr(&theme_detector, cursor_backend.get());
 
+    const bool shake_runtime_mode = std::any_of(argv, argv + argc, [](const char* arg) {
+        return std::string(arg) == "--shake-runtime";
+    });
+
+    if (shake_runtime_mode)
+    {
+        waymouse::ShakeSessionRuntime runtime(&cfg_mgr,
+                                              &pointer_mgr,
+                                              detector.compositor_name());
+        if (!runtime.start())
+            return 1;
+        return app.exec();
+    }
+
     // Load saved pointer config on startup
     auto saved_pointer = cfg_mgr.get_pointer();
     if (saved_pointer)
@@ -52,6 +69,7 @@ int main(int argc, char* argv[])
 
     // --- Shake to Find ---
     ShakeManager shake_mgr(&pointer_mgr);
+    shake_mgr.set_compositor_name(detector.compositor_name());
 
     // Load saved shake config on startup (or apply defaults)
     auto saved_shake = cfg_mgr.get_shake();
@@ -67,9 +85,6 @@ int main(int argc, char* argv[])
     // Persist normalized shake config on startup (covers invalid TOML values too)
     cfg_mgr.set_shake(shake_mgr.config());
     cfg_mgr.save();
-
-    // Start monitoring (probes overlay availability internally)
-    shake_mgr.start();
 
     // Note: auto-save of [pointer] config is handled by MainWindow
     // via PointerManager::changed signal connection.

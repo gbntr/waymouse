@@ -34,6 +34,7 @@ private slots:
 private:
     void setupUi();
     void updateBadge();
+    void updateRuntimeBadge();
     void saveConfig();
 
     ShakeManager* m_manager;

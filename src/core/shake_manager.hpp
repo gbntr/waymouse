@@ -3,9 +3,11 @@
 #include "core/shake_config.hpp"
 #include "core/shake_detector.hpp"
 #include "core/raw_input_monitor.hpp"
+#include "core/runtime_status.hpp"
 #include <QObject>
 #include <memory>
 #include <atomic>
+#include <string>
 
 namespace waymouse {
 
@@ -44,6 +46,12 @@ public:
 
     // Access to the overlay for showing/hiding.
     ShakeOverlay* overlay() { return m_overlay.get(); }
+    void set_compositor_name(std::string compositor_name);
+    std::string compositor_name() const;
+    std::string overlay_backend_name() const;
+    bool permission_denied() const;
+    bool functional_input_available() const;
+    const ShakeRuntimeStatus& status() const;
 
 signals:
     // Emitted when a shake is detected. Connected to overlay show.
@@ -55,18 +63,25 @@ signals:
     // Emitted when overlay availability changes (probed at startup).
     void availability_changed(bool available);
 
+    // Emitted when the authoritative runtime status changes.
+    void status_changed(const ShakeRuntimeStatus& status);
+
 private slots:
     void on_shake_detected();
+    void on_input_state_changed(const RawInputMonitor::State& state);
 
 private:
     void on_input_event(const InputEvent& ev);
     void update_state();
+    void publish_status();
 
     ShakeConfig m_config;
     std::unique_ptr<ShakeDetector> m_detector;
     std::unique_ptr<RawInputMonitor> m_monitor;
     std::unique_ptr<ShakeOverlay> m_overlay;
     PointerManager* m_pointer_mgr;
+    std::string m_compositor_name;
+    ShakeRuntimeStatus m_status;
     std::atomic<bool> m_available;
     std::atomic<bool> m_running;
 

@@ -11,13 +11,15 @@ as configurações via GUI Qt6.
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    GUI (Qt6)                        │
-│  main_window, device_panel, pointer_panel,           │
+│  main_window, device_panel, pointer_panel,          │
 │  shake_panel, shake_overlay                         │
 ├─────────────────────────────────────────────────────┤
 │                     Core                            │
 │  config_manager, device_mgr, compositor_detector,   │
 │  pointer_manager, theme_detector, shake_manager,    │
-│  shake_detector, raw_input_monitor                  │
+│  shake_session_runtime, shake_detector,             │
+│  raw_input_monitor, config_watcher,                 │
+│  runtime_status, runtime_lock, mango_ipc_client     │
 ├─────────────────────────────────────────────────────┤
 │          Backends (Device + Cursor)                  │
 │  Mango │ Niri │ Libinput │ EnvCursor │ WlrCursor    │
@@ -105,30 +107,21 @@ public:
 3. `DeviceManager` enumera dispositivos.
 4. `ConfigManager` carrega config persistida.
 5. `PointerManager` é instanciado com `ThemeDetector` + `CursorBackend`.
-6. `ShakeManager` é instanciado (owns `ShakeDetector` + `RawInputMonitor`).
-7. `ShakeOverlay` é instanciado e conectado ao `ShakeManager`.
-8. Configuração `[shake]` é carregada e aplicada ao `ShakeManager`.
-9. `MainWindow` é exibida com três abas: Dispositivo, Aparência, Shake.
-10. Usuário altera config → `ConfigManager` salva TOML + backend aplica.
+6. Se o processo for `waymouse --shake-runtime`, o app entra em modo headless de sessão.
+7. `ShakeSessionRuntime` adquire lock de instância, carrega `[shake]`, inicializa overlay, input monitor e publicação de status.
+8. Se o compositor for Mango, `MangoIpcClient` consulta layout de monitores via `mmsg`.
+9. `ConfigWatcher` observa alterações no TOML e reaplica `[shake]` sem restart.
+10. No modo GUI, `MainWindow` é exibida com três abas: Dispositivo, Aparência, Shake.
+11. A GUI lê o estado autoritativo do runtime de sessão em vez de assumir sucesso local.
+12. Usuário altera config → `ConfigManager` salva TOML; runtime aplica via watcher.
 
 ## Shake to Find Flow
 
-1. `RawInputMonitor` abre `/dev/input/event*` para dispositivos com `ID_INPUT_MOUSE=true`.
-2. Thread de input lê eventos `REL_X`/`REL_Y` via `epoll_wait()` e os encaminha ao `ShakeDetector`.
-3. `ShakeDetector` analisa sequência de deltas no algoritmo de reversão direcional.
-4. Ao detectar shake, callback `on_shake` é invocado na thread de input.
-5. `ShakeManager` encaminha o sinal para a thread principal via `QMetaObject::invokeMethod`.
-6. `ShakeOverlay::show_at()` exibe o overlay (cursor escalado + anel azul) via `QWindow` com flags `WindowStaysOnTopHint` + `WindowTransparentForInput`.
-7. `QTimer` esconde o overlay após `duration` segundos.
-8. Se o compositor não suporta janelas flutuantes transparentes (raro), o recurso pode não funcionar corretamente. Uma iteração futura pode usar `zwlr_layer_shell_v1` para semântica de overlay garantida.
-
-## Shake to Find Flow
-
-1. `RawInputMonitor` abre `/dev/input/event*` para dispositivos com `ID_INPUT_MOUSE=true`.
-2. Thread de input lê eventos `REL_X`/`REL_Y` via `epoll_wait()` e os encaminha ao `ShakeDetector`.
-3. `ShakeDetector` analisa sequência de deltas no algoritmo de reversão direcional.
-4. Ao detectar shake, callback `on_shake` é invocado na thread de input.
-5. `ShakeManager` encaminha o sinal para a thread principal via `QMetaObject::invokeMethod`.
-6. `ShakeOverlay::show_at()` exibe o overlay (cursor escalado + anel azul) via `zwlr_layer_shell_v1`.
-7. `QTimer` esconde o overlay após `duration` segundos.
-8. Se o compositor não suporta `zwlr_layer_shell_v1`, o recurso é desabilitado com badge de aviso.
+1. O runtime de sessão é iniciado no Mango via `exec-once=waymouse --shake-runtime`.
+2. `RawInputMonitor` tenta abrir `/dev/input/event*` para `ID_INPUT_MOUSE=true` e continua em retry/rescan se falhar.
+3. Eventos `REL_X`/`REL_Y` alimentam `ShakeDetector` e atualizam posição estimada do cursor.
+4. Em Mango, `MangoIpcClient` fornece layout de monitores para clamp/posicionamento.
+5. Ao detectar shake, o runtime solicita exibição do overlay.
+6. No Mango, `ShakeOverlay` prioriza `zwlr_layer_shell_v1`; se falhar, cai para `QWindow` fallback com estado degradado explícito.
+7. `RuntimeStatusPublisher` grava o estado real da feature em `$XDG_RUNTIME_DIR/waymouse/shake-status.json`.
+8. A GUI lê esse estado para mostrar ativo, degradado, parado ou erro de permissão.

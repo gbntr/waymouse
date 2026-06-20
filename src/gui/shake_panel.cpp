@@ -1,6 +1,7 @@
 #include "gui/shake_panel.hpp"
 #include "core/shake_manager.hpp"
 #include "core/config_manager.hpp"
+#include "core/runtime_status.hpp"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -52,6 +53,7 @@ public:
     QDoubleSpinBox* scale_spin = nullptr;
     QSlider* scale_slider = nullptr;
     QLabel* badge_label = nullptr;
+    QLabel* runtime_label = nullptr;
 };
 
 ShakePanel::ShakePanel(ShakeManager* manager,
@@ -125,6 +127,7 @@ void ShakePanel::refresh()
     m_impl->scale_slider->blockSignals(false);
 
     updateBadge();
+    updateRuntimeBadge();
 }
 
 void ShakePanel::setupUi()
@@ -241,6 +244,11 @@ void ShakePanel::setupUi()
         "padding: 8px; background: #ffeeee; border-radius: 4px; }");
     layout->addWidget(m_impl->badge_label);
 
+    m_impl->runtime_label = new QLabel(this);
+    m_impl->runtime_label->setObjectName("shake_runtime_label");
+    m_impl->runtime_label->setWordWrap(true);
+    layout->addWidget(m_impl->runtime_label);
+
     layout->addStretch();
 }
 
@@ -297,6 +305,8 @@ void ShakePanel::onAvailabilityChanged(bool available)
     {
         m_impl->enabled_check->setChecked(false);
     }
+
+    updateRuntimeBadge();
 }
 
 void ShakePanel::updateBadge()
@@ -311,6 +321,26 @@ void ShakePanel::updateBadge()
             "Shake to Find is temporarily unavailable in this session.");
         m_impl->badge_label->show();
     }
+}
+
+void ShakePanel::updateRuntimeBadge()
+{
+    const auto status = RuntimeStatusPublisher::read();
+    const QString text = QString("Runtime: %1 | input=%2 | overlay=%3 | backend=%4 | compositor=%5%6")
+        .arg(status.runtime_active ? "running" : "stopped")
+        .arg(QString::fromStdString(to_string(status.input_state)))
+        .arg(QString::fromStdString(to_string(status.overlay_state)))
+        .arg(QString::fromStdString(to_string(status.overlay_backend)))
+        .arg(QString::fromStdString(to_string(status.compositor)))
+        .arg(status.last_error.empty() ? QString{} : QString(" | %1").arg(QString::fromStdString(status.last_error)));
+
+    m_impl->runtime_label->setText(text);
+
+    const bool runtime_error = status.input_state == RuntimeInputState::PermissionDenied
+        || status.overlay_state == RuntimeOverlayState::Failed;
+    m_impl->runtime_label->setStyleSheet(runtime_error
+        ? "QLabel { color: #9c2b2b; font-weight: bold; }"
+        : "QLabel { color: #2b5a9c; }");
 }
 
 void ShakePanel::saveConfig()

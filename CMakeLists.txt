@@ -67,12 +67,17 @@ set(PROTOCOL_SOURCES ${PROTOCOL_HEADER} ${PROTOCOL_CODE})
 set(CORE_SOURCES
     src/core/compositor_detector.cpp
     src/core/config_manager.cpp
+    src/core/config_watcher.cpp
     src/core/device_manager.cpp
+    src/core/mango_ipc_client.cpp
+    src/core/runtime_lock.cpp
+    src/core/runtime_status.cpp
     src/core/pointer_manager.cpp
     src/core/theme_detector.cpp
     src/core/shake_detector.cpp
     src/core/raw_input_monitor.cpp
     src/core/shake_manager.cpp
+    src/core/shake_session_runtime.cpp
 )
 
 set(BACKEND_SOURCES

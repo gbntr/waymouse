@@ -23,6 +23,15 @@ struct InputEvent
 class RawInputMonitor
 {
 public:
+    struct State
+    {
+        bool running = false;
+        bool functional = false;
+        bool permission_denied = false;
+        bool needs_rescan = true;
+        std::string last_error;
+    };
+
     RawInputMonitor();
     ~RawInputMonitor();
 
@@ -38,13 +47,27 @@ public:
     // Called from the worker thread for each REL_X/REL_Y event.
     std::function<void(const InputEvent&)> on_event;
 
+    // Called when the monitor state changes (start, rescan, permission failure,
+    // hotplug recovery, stop). Invoked from the worker thread.
+    std::function<void(const State&)> on_state_change;
+
+    bool has_functional_input() const;
+    bool permission_denied() const;
+    std::string last_error() const;
+    State state() const;
+
 private:
     void scan_and_open();
     void run();
+    void publish_state();
 
     std::vector<int> m_fds;     // open /dev/input/event* file descriptors
     std::thread m_thread;
     std::atomic<bool> m_running;
+    std::atomic<bool> m_functional;
+    std::atomic<bool> m_permission_denied;
+    std::atomic<bool> m_needs_rescan;
+    mutable std::string m_last_error;
 };
 
 } // namespace waymouse

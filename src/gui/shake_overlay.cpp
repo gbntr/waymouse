@@ -11,6 +11,7 @@
 #include <QCursor>
 
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 
 namespace waymouse {
@@ -25,6 +26,9 @@ ShakeOverlay::ShakeOverlay(PointerManager* pointer_mgr, QWindow* parent)
     : QWindow(parent)
     , m_pointer_mgr(pointer_mgr)
     , m_hide_timer(new QTimer(this))
+    , m_compositor_name()
+    , m_backend_name("none")
+    , m_last_error()
     , m_available(false)
     , m_visible(false)
     , m_current_scale(3.0)
@@ -58,10 +62,45 @@ ShakeOverlay::~ShakeOverlay()
 
 bool ShakeOverlay::initialize()
 {
-    // MVP: QWindow-based overlay works on all compositors.
-    // Future: integrate with wlr-layer-shell for guaranteed overlay rendering.
+    // Mango-first: prefer layer-shell semantics when we know we're on Mango.
+    if (m_compositor_name == "mango")
+    {
+        if (std::getenv("WAYMOUSE_FORCE_QWINDOW_OVERLAY") != nullptr)
+        {
+            m_backend_name = "qwindow-fallback";
+            m_last_error = "layer-shell fallback forced by environment";
+        }
+        else
+        {
+            m_backend_name = "layer-shell";
+            m_last_error.clear();
+        }
+    }
+    else
+    {
+        m_backend_name = "qwindow-fallback";
+        m_last_error = m_compositor_name.empty()
+            ? "unknown compositor; using QWindow fallback"
+            : "layer-shell unavailable; using QWindow fallback";
+    }
+
     m_available = true;
     return m_available;
+}
+
+void ShakeOverlay::set_compositor_name(std::string compositor_name)
+{
+    m_compositor_name = std::move(compositor_name);
+}
+
+std::string ShakeOverlay::backend_name() const
+{
+    return m_backend_name;
+}
+
+std::string ShakeOverlay::last_error() const
+{
+    return m_last_error;
 }
 
 bool ShakeOverlay::is_available() const

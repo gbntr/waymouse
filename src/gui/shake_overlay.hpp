@@ -4,6 +4,7 @@
 #include <QBackingStore>
 #include <QTimer>
 #include <memory>
+#include <string>
 
 namespace waymouse {
 
@@ -11,8 +12,8 @@ class PointerManager;
 
 // Transient overlay window that appears when a shake is detected.
 // Uses QPainter on a QBackingStore to render the scaled cursor + highlight ring.
-// In the MVP, uses QWindow flags (StaysOnTop, Frameless, TransparentForInput)
-// instead of wlr-layer-shell for maximum compositor compatibility.
+// In Mango-first mode, prefers layer-shell semantics when possible and falls
+// back to a transparent QWindow with explicit degraded status.
 class ShakeOverlay : public QWindow
 {
     Q_OBJECT
@@ -26,6 +27,9 @@ public:
     // since we use standard QWindow behavior instead of layer-shell.
     bool initialize();
     bool is_available() const;
+    void set_compositor_name(std::string compositor_name);
+    std::string backend_name() const;
+    std::string last_error() const;
 
     // Show the overlay at the estimated cursor position.
     // scale: scale factor for the cursor image (e.g., 3.0 = 3x size).
@@ -46,6 +50,9 @@ private:
     PointerManager* m_pointer_mgr;
     std::unique_ptr<QBackingStore> m_backing_store;
     QTimer* m_hide_timer;
+    std::string m_compositor_name;
+    std::string m_backend_name;
+    std::string m_last_error;
     bool m_available;
     bool m_visible;
     double m_current_scale;
