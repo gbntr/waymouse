@@ -25,6 +25,7 @@ signals:
 
 private slots:
     void on_path_changed(const QString& path);
+    void on_directory_changed(const QString& path);
 
 private:
     void emit_current_shake();

@@ -46,6 +46,10 @@ ShakeManager::ShakeManager(PointerManager* pointer_mgr, QObject* parent)
         this->on_input_event(ev);
     };
 
+    m_monitor->on_state_change = [this](const RawInputMonitor::State&) {
+        QMetaObject::invokeMethod(this, [this]() { update_state(); }, Qt::QueuedConnection);
+    };
+
     // Create and initialize the overlay
     m_overlay = std::make_unique<ShakeOverlay>(m_pointer_mgr);
     m_overlay->set_compositor_name(m_compositor_name);
@@ -199,6 +203,7 @@ void ShakeManager::on_shake_detected()
 void ShakeManager::on_input_state_changed(const RawInputMonitor::State& state)
 {
     (void)state;
+    update_state();
 }
 
 void ShakeManager::update_state()
