@@ -9,20 +9,27 @@ as configurações via GUI Qt6.
 ## Camadas
 
 ```
-┌─────────────────────────────┐
-│           GUI (Qt6)         │
-│  main_window, device_panel  │
-├─────────────────────────────┤
-│           Core              │
-│  config_manager, device_mgr,│
-│  compositor_detector        │
-├─────────────────────────────┤
-│          Backends           │
-│  Mango │ Niri │ Libinput    │
-├─────────────────────────────┤
-│      Sistema (Linux)        │
-│  libinput / libudev / wl    │
-└─────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    GUI (Qt6)                        │
+│  main_window, device_panel, pointer_panel,          │
+│  shake_panel, shake_overlay                         │
+├─────────────────────────────────────────────────────┤
+│                     Core                            │
+│  config_manager, device_mgr, compositor_detector,   │
+│  pointer_manager, theme_detector, shake_manager,    │
+│  shake_session_runtime, shake_detector,             │
+│  raw_input_monitor, config_watcher,                 │
+│  runtime_status, runtime_lock, mango_ipc_client     │
+├─────────────────────────────────────────────────────┤
+│          Backends (Device + Cursor)                  │
+│  Mango │ Niri │ Libinput │ EnvCursor │ WlrCursor    │
+├─────────────────────────────────────────────────────┤
+│              Wayland Layer                          │
+│  layer_shell_surface (wlr-layer-shell-v1)           │
+├─────────────────────────────────────────────────────┤
+│      Sistema (Linux)                                │
+│  libinput / libudev / wayland-client / /dev/input   │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Core
@@ -96,8 +103,25 @@ public:
 ## Runtime Flow
 
 1. `main` instancia `CompositorDetector`.
-2. Detector retorna `BackendType` → fábrica cria backend concreto.
+2. Detector retorna `BackendType` → fábrica cria backend concreto e cursor backend.
 3. `DeviceManager` enumera dispositivos.
 4. `ConfigManager` carrega config persistida.
-5. `MainWindow` é exibida com lista de dispositivos.
-6. Usuário altera config → `ConfigManager` salva TOML + `Backend::apply()` é chamado.
+5. `PointerManager` é instanciado com `ThemeDetector` + `CursorBackend`.
+6. Se o processo for `waymouse --shake-runtime`, o app entra em modo headless de sessão.
+7. `ShakeSessionRuntime` adquire lock de instância, carrega `[shake]`, inicializa overlay, input monitor e publicação de status.
+8. Se o compositor for Mango, `MangoIpcClient` consulta layout de monitores via `mmsg`.
+9. `ConfigWatcher` observa alterações no TOML e reaplica `[shake]` sem restart.
+10. No modo GUI, `MainWindow` é exibida com três abas: Dispositivo, Aparência, Shake.
+11. A GUI lê o estado autoritativo do runtime de sessão em vez de assumir sucesso local.
+12. Usuário altera config → `ConfigManager` salva TOML; runtime aplica via watcher.
+
+## Shake to Find Flow
+
+1. O runtime de sessão é iniciado no Mango via `exec-once=waymouse --shake-runtime`.
+2. `RawInputMonitor` tenta abrir `/dev/input/event*` para `ID_INPUT_MOUSE=true` e continua em retry/rescan se falhar.
+3. Eventos `REL_X`/`REL_Y` alimentam `ShakeDetector` e atualizam posição estimada do cursor.
+4. Em Mango, `MangoIpcClient` fornece layout de monitores para clamp/posicionamento.
+5. Ao detectar shake, o runtime solicita exibição do overlay.
+6. No Mango, `ShakeOverlay` prioriza `zwlr_layer_shell_v1`; se falhar, cai para `QWindow` fallback com estado degradado explícito.
+7. `RuntimeStatusPublisher` grava o estado real da feature em `$XDG_RUNTIME_DIR/waymouse/shake-status.json`.
+8. A GUI lê esse estado para mostrar ativo, degradado, parado ou erro de permissão.

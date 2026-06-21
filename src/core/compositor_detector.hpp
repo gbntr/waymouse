@@ -1,6 +1,7 @@
 #pragma once
 
 #include "backends/backend.hpp"
+#include "backends/cursor_backend.hpp"
 #include <memory>
 
 namespace waymouse {
@@ -23,5 +24,6 @@ private:
 };
 
 BackendPtr create_backend(BackendType type);
+CursorBackendPtr create_cursor_backend(BackendType type);
 
 } // namespace waymouse
