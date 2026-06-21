@@ -12,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QFont>
 #include <QSlider>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include <cmath>
@@ -66,6 +67,12 @@ ShakePanel::ShakePanel(ShakeManager* manager,
 {
     setupUi();
     refresh();
+
+    auto* runtime_poll_timer = new QTimer(this);
+    runtime_poll_timer->setInterval(1000);
+    connect(runtime_poll_timer, &QTimer::timeout,
+            this, &ShakePanel::onRuntimePollTimeout);
+    runtime_poll_timer->start();
 
     // Connections — auto-apply on every change
     connect(m_impl->enabled_check, &QCheckBox::toggled,
@@ -338,9 +345,28 @@ void ShakePanel::updateRuntimeBadge()
 
     const bool runtime_error = status.input_state == RuntimeInputState::PermissionDenied
         || status.overlay_state == RuntimeOverlayState::Failed;
-    m_impl->runtime_label->setStyleSheet(runtime_error
-        ? "QLabel { color: #9c2b2b; font-weight: bold; }"
-        : "QLabel { color: #2b5a9c; }");
+    const bool runtime_degraded = status.input_state == RuntimeInputState::Degraded
+        || status.overlay_state == RuntimeOverlayState::Degraded;
+
+    if (runtime_error)
+    {
+        m_impl->runtime_label->setStyleSheet(
+            "QLabel { color: #9c2b2b; font-weight: bold; }");
+    }
+    else if (runtime_degraded)
+    {
+        m_impl->runtime_label->setStyleSheet(
+            "QLabel { color: #9c6a2b; font-weight: bold; }");
+    }
+    else
+    {
+        m_impl->runtime_label->setStyleSheet("QLabel { color: #2b5a9c; }");
+    }
+}
+
+void ShakePanel::onRuntimePollTimeout()
+{
+    updateRuntimeBadge();
 }
 
 void ShakePanel::saveConfig()

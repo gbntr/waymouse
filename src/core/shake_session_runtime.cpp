@@ -20,7 +20,7 @@ ShakeSessionRuntime::ShakeSessionRuntime(ConfigManager* config_manager,
     , m_compositor_name(std::move(compositor_name))
     , m_lock()
     , m_publisher()
-    , m_config_watcher(config_manager, this)
+    , m_config_watcher(config_manager)
     , m_shake_manager(std::make_unique<ShakeManager>(pointer_manager))
     , m_status(stopped_runtime_status())
     , m_running(false)
@@ -36,6 +36,8 @@ ShakeSessionRuntime::ShakeSessionRuntime(ConfigManager* config_manager,
 
 ShakeSessionRuntime::~ShakeSessionRuntime()
 {
+    if (m_shake_manager)
+        disconnect(m_shake_manager.get(), nullptr, this, nullptr);
     stop();
 }
 
@@ -48,7 +50,6 @@ bool ShakeSessionRuntime::start()
     {
         set_error("another shake runtime is already running", RuntimeInputState::Stopped,
                   RuntimeOverlayState::Stopped);
-        publish_status();
         return false;
     }
 

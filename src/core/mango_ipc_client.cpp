@@ -16,7 +16,9 @@ MangoIpcClient::MangoIpcClient() = default;
 
 bool MangoIpcClient::is_available() const
 {
-    return std::getenv("MANGO_INSTANCE_SIGNATURE") != nullptr
+    const char* signature = std::getenv("MANGO_INSTANCE_SIGNATURE");
+    return signature != nullptr
+        && *signature != '\0'
         && !QStandardPaths::findExecutable("mmsg").isEmpty();
 }
 

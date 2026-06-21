@@ -7,9 +7,31 @@
 #include "core/shake_manager.hpp"
 #include "core/shake_session_runtime.hpp"
 #include "gui/main_window.hpp"
+
+#include <QTimer>
+
 #include <iostream>
 #include <algorithm>
+#include <csignal>
 #include <string>
+
+namespace {
+
+volatile std::sig_atomic_t g_shutdown_signal = 0;
+
+void handle_runtime_signal(int signal_number)
+{
+    g_shutdown_signal = signal_number;
+}
+
+void install_runtime_signal_handlers()
+{
+    std::signal(SIGINT, handle_runtime_signal);
+    std::signal(SIGTERM, handle_runtime_signal);
+    std::signal(SIGHUP, handle_runtime_signal);
+}
+
+} // namespace
 
 int main(int argc, char* argv[])
 {
@@ -44,12 +66,29 @@ int main(int argc, char* argv[])
 
     if (shake_runtime_mode)
     {
+        install_runtime_signal_handlers();
+        app.setQuitOnLastWindowClosed(false);
+
+        QTimer shutdown_timer;
+        shutdown_timer.setInterval(100);
+        QObject::connect(&shutdown_timer, &QTimer::timeout, &app, [&app]() {
+            if (g_shutdown_signal != 0)
+                app.quit();
+        });
+        shutdown_timer.start();
+
         waymouse::ShakeSessionRuntime runtime(&cfg_mgr,
                                               &pointer_mgr,
                                               detector.compositor_name());
         if (!runtime.start())
+        {
+            std::cerr << runtime.error() << "\n";
             return 1;
-        return app.exec();
+        }
+
+        const int ret = app.exec();
+        runtime.stop();
+        return ret;
     }
 
     // Load saved pointer config on startup

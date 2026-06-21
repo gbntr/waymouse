@@ -30,6 +30,7 @@ private slots:
     void onDurationChanged(double value);
     void onScaleChanged(double value);
     void onAvailabilityChanged(bool available);
+    void onRuntimePollTimeout();
 
 private:
     void setupUi();

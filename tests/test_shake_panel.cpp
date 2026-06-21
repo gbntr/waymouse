@@ -1,5 +1,6 @@
 #include "gui/shake_panel.hpp"
 #include "core/config_manager.hpp"
+#include "core/runtime_status.hpp"
 #include "core/shake_manager.hpp"
 
 #include <QApplication>
@@ -149,6 +150,47 @@ private slots:
         QVERIFY(badge->text().contains("temporarily unavailable"));
 
         std::filesystem::remove_all(dir);
+    }
+
+    void test_runtime_badge_polls_and_highlights_degraded_state()
+    {
+        const std::string root_dir = temp_dir() + "_runtime_badge";
+        const std::string config_dir = root_dir + "/config";
+        const std::string runtime_dir = root_dir + "/runtime";
+        std::filesystem::remove_all(root_dir);
+        std::filesystem::create_directories(config_dir + "/waymouse");
+        std::filesystem::create_directories(runtime_dir);
+        setenv("XDG_CONFIG_HOME", config_dir.c_str(), 1);
+        setenv("XDG_RUNTIME_DIR", runtime_dir.c_str(), 1);
+
+        ConfigManager cfg_mgr;
+        cfg_mgr.load();
+
+        ShakeManager mgr;
+        ShakePanel panel(&mgr, &cfg_mgr);
+
+        ShakeRuntimeStatus running_status;
+        running_status.runtime_active = true;
+        running_status.input_state = RuntimeInputState::Running;
+        running_status.overlay_state = RuntimeOverlayState::Running;
+        running_status.overlay_backend = RuntimeOverlayBackend::LayerShell;
+        running_status.compositor = RuntimeCompositor::Mango;
+        QVERIFY(RuntimeStatusPublisher().publish(running_status));
+        panel.refresh();
+
+        auto* runtime_label = panel.findChild<QLabel*>("shake_runtime_label");
+        QVERIFY(runtime_label != nullptr);
+        QVERIFY(runtime_label->text().contains("input=running"));
+
+        ShakeRuntimeStatus degraded_status = running_status;
+        degraded_status.input_state = RuntimeInputState::Degraded;
+        degraded_status.overlay_state = RuntimeOverlayState::Degraded;
+        QVERIFY(RuntimeStatusPublisher().publish(degraded_status));
+
+        QTRY_VERIFY(runtime_label->text().contains("input=degraded"));
+        QVERIFY(runtime_label->styleSheet().contains("#9c6a2b"));
+
+        std::filesystem::remove_all(root_dir);
     }
 };
 

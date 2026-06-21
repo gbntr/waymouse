@@ -63,10 +63,21 @@ static void test_missing_env_is_degraded()
     PASS();
 }
 
+static void test_empty_env_is_not_available()
+{
+    TEST("empty mango env is unavailable");
+
+    setenv("MANGO_INSTANCE_SIGNATURE", "", 1);
+    MangoIpcClient client;
+    ASSERT_TRUE(!client.is_available(), "empty signature should not be available");
+    PASS();
+}
+
 int main()
 {
     test_parse_stub_output();
     test_missing_env_is_degraded();
+    test_empty_env_is_not_available();
 
     std::cout << "\nResults: " << tests_passed << "/" << tests_run << " passed\n";
     return tests_passed == tests_run ? 0 : 1;
